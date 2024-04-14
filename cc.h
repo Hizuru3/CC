@@ -1255,7 +1255,33 @@ static inline cc_allocing_fn_result_ty cc_vec_push(
   cc_realloc_fnptr_ty realloc_
 )
 {
-  return cc_vec_push_n( cntr, el, 1, el_size, realloc_ );
+  char *new_el;
+  if( cc_vec_size( cntr ) >= cc_vec_cap( cntr ) ) 
+  {
+    size_t cap = cc_vec_cap( cntr );
+    if ( CC_UNLIKELY( cap > ( SIZE_MAX >> 1 ) ) )
+        return cc_make_allocing_fn_result( cntr, NULL );
+    cap = !cap ? 2 : cap * 2;
+
+    cc_allocing_fn_result_ty result = cc_vec_reserve(
+      cntr,
+      cap,
+      el_size,
+      0,        // Dummy.
+      NULL,     // Dummy.
+      0.0,      // Dummy.
+      realloc_,
+      NULL      // Dummy.
+    );
+    if( CC_UNLIKELY( !result.other_ptr ) )
+      return result;
+
+    cntr = result.new_cntr;
+  }
+  new_el = (char *)cntr + sizeof( cc_vec_hdr_ty ) + el_size * cc_vec_size( cntr );
+  memcpy( new_el, el, el_size );
+  cc_vec_hdr( cntr )->size += 1;
+  return cc_make_allocing_fn_result( cntr, new_el );
 }
 
 // Erases n elements at the specified index.
